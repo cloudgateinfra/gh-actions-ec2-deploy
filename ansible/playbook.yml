@@ -1,0 +1,58 @@
+---
+- name: Update index.html
+  hosts: all
+  gather_facts: no
+  remote_user: ubuntu
+  vars:
+    aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+    aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+  tasks:
+    - name: Update and upgrade apt packages
+      become: true
+      apt:
+        upgrade: 'yes'
+        update_cache: 'yes'
+      register: result
+      until: result is succeeded
+      retries: 5
+      delay: 10
+
+    # - name: Update and upgrade apt packages
+    #   become: true
+    #   apt:
+    #     upgrade: 'yes'
+    #     update_cache: 'yes'
+
+    - name: Install Python3 pip
+      become: true
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Ensure boto3 and botocore are installed
+      become: true
+      ansible.builtin.pip:
+        name:
+          - boto3
+          - botocore
+        executable: pip3
+        extra_args: --target=/usr/lib/python3/dist-packages
+        
+    # - name: Ensure boto3 and botocore are installed
+    #   ansible.builtin.pip:
+    #     name:
+    #       - boto3
+    #       - botocore
+    #     executable: pip3
+
+    - name: Get index.html from S3 and put directly in /var/www/html
+      become: true
+      aws_s3:
+        bucket: source-code-gh-actions-pipeline
+        object: index.html
+        dest: /var/www/html/index.html
+        mode: get
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ lookup('env','AWS_REGION') }}"
+...
